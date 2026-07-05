@@ -4,7 +4,13 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import { connectDB } from "./config/db.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import voiceRoutes from "./routes/voiceRoutes.js";
 import callRoutes from "./routes/callRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -55,8 +61,21 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/health-assistant", healthAssistantRoutes);
 app.use("/api/reports", reportRoutes);
 
-app.get("/", (req, res) => res.json({ status: "ok", message: "Healthcare Portal API running" }));
+const frontendBuildPath = path.join(__dirname, "../frontend/dist");
+if (fs.existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
+}
+
 app.get("/api/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
+
+if (fs.existsSync(frontendBuildPath)) {
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) return next();
+    res.sendFile(path.resolve(frontendBuildPath, "index.html"));
+  });
+} else {
+  app.get("/", (req, res) => res.json({ status: "ok", message: "Healthcare Portal API running" }));
+}
 
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
