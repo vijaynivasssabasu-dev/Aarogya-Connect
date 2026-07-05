@@ -182,7 +182,7 @@ if (USE_MOCK) {
 
   initLocalStorage();
 
-  const getLocal = (key) => JSON.parse(localStorage.getItem(key));
+  const getLocal = (key) => JSON.parse(localStorage.getItem(key)) || [];
   const setLocal = (key, val) => localStorage.setItem(key, JSON.stringify(val));
 
   api.interceptors.request.use((config) => {
