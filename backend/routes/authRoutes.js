@@ -5,9 +5,11 @@ import Patient from "../models/Patient.js";
 import Doctor from "../models/Doctor.js";
 import Receptionist from "../models/Receptionist.js";
 import Admin from "../models/Admin.js";
+import OTP from "../models/OTP.js";
 import { generateToken } from "../utils/generateToken.js";
 import { verifyToken } from "../middleware/auth.js";
 import { handleValidationErrors } from "../middleware/validate.js";
+import { sendSMS } from "../services/twilioService.js";
 
 const router = express.Router();
 const MODEL_BY_ROLE = { patient: Patient, doctor: Doctor, receptionist: Receptionist, admin: Admin };
@@ -50,6 +52,48 @@ router.post("/login",
     } catch (err) { res.status(400).json({ error: err.message }); }
   }
 );
+
+// Send SMS verification OTP
+router.post("/send-otp", async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) return res.status(400).json({ error: "Phone number is required" });
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  try {
+    await OTP.findOneAndUpdate({ phone }, { code }, { upsert: true, new: true });
+
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+      await sendSMS({
+        toPhoneNumber: phone,
+        message: `Your MedCare AI verification code is: ${code}. Valid for 5 minutes.`,
+      });
+      console.log(`Real SMS OTP ${code} dispatched to ${phone}`);
+    } else {
+      console.log(`Mock SMS OTP ${code} generated for ${phone} (Twilio not configured)`);
+    }
+
+    res.json({ success: true, code, message: "Verification SMS dispatched" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Verify OTP
+router.post("/verify-otp", async (req, res) => {
+  const { phone, code } = req.body;
+  if (!phone || !code) return res.status(400).json({ error: "Phone and code are required" });
+
+  try {
+    const record = await OTP.findOne({ phone, code });
+    if (!record) {
+      return res.status(400).json({ error: "Invalid or expired verification code" });
+    }
+    await OTP.deleteOne({ _id: record._id });
+    res.json({ success: true, verified: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get("/me", verifyToken, async (req, res) => {
   try {

@@ -228,6 +228,20 @@ if (USE_MOCK) {
       return mockResponse({ token: 'mock-token', role, user });
     }
 
+    if (url.includes('/auth/send-otp')) {
+      const { phone } = data;
+      console.log(`Mock OTP sent to ${phone}. Use 123456 to verify.`);
+      return mockResponse({ success: true, message: 'Verification SMS dispatched (Mock)' });
+    }
+
+    if (url.includes('/auth/verify-otp')) {
+      const { phone, code } = data;
+      if (code === '123456') {
+        return mockResponse({ success: true, verified: true });
+      }
+      return mockError('Invalid OTP code', 400);
+    }
+
     if (url.includes('/auth/register')) {
       const { role, name, phone, email, ...rest } = data;
       let userList = getLocal('mock_patients');

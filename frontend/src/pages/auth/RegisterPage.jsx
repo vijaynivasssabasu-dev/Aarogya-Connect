@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Heart, User, Mail, Phone, Lock, ShieldCheck, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../../api/axios';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '', dob: '', gender: '', bloodGroup: '', address: '' });
@@ -18,35 +19,34 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleSendOTP = (e) => {
+  const handleSendOTP = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) return toast.error('Passwords do not match');
     if (!formData.phone.trim()) return toast.error('Please specify your phone number');
 
     setLoading(true);
-    // Simulate sending OTP via Twilio Verify
-    setTimeout(() => {
-      setSentOtp('123456'); // Mock OTP code
+    try {
+      await api.post('/auth/send-otp', { phone: formData.phone });
       setStep('verify_otp');
-      setLoading(false);
       toast.success(`Verification code dispatched to ${formData.phone}!`);
-    }, 1200);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to dispatch verification SMS');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerifyAndRegister = async (e) => {
     e.preventDefault();
-    if (otpCode !== '123456') {
-      return toast.error('Invalid OTP Verification Code. Please try again.');
-    }
-
     setLoading(true);
     try {
+      await api.post('/auth/verify-otp', { phone: formData.phone, code: otpCode });
       const { confirmPassword, ...userData } = formData;
       await register({ ...userData, role: 'patient' });
       toast.success('Phone verified! Account created successfully.');
       navigate('/patient');
     } catch (err) { 
-      toast.error(err.response?.data?.error || 'Registration failed'); 
+      toast.error(err.response?.data?.error || 'Verification failed'); 
     } finally { 
       setLoading(false); 
     }

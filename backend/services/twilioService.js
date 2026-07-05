@@ -22,3 +22,15 @@ export async function callPatient({ toPhoneNumber, appointmentId }) {
 
   return call.sid;
 }
+
+/**
+ * Sends a real outbound SMS message to the patient's phone.
+ */
+export async function sendSMS({ toPhoneNumber, message }) {
+  const response = await client.messages.create({
+    body: message,
+    from: process.env.TWILIO_PHONE_NUMBER,
+    to: toPhoneNumber,
+  });
+  return response.sid;
+}
